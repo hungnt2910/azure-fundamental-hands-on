@@ -77,6 +77,46 @@ Team Cloud thực hiện theo các bước sau để chuyển đổi từ Demo s
 
 ---
 
+## 🛠️ Chi tiết triển khai Kỹ thuật (FE & BE)
+
+Dưới đây là chi tiết các luồng xử lý và kỹ thuật đã được hiện thực hóa trong dự án:
+
+### 1. Backend (.NET 10 Minimal API)
+Toàn bộ logic backend tập trung tại file `backend/Program.cs` để tối ưu hóa hiệu năng và dễ dàng bảo trì.
+
+**Các luồng xử lý chính (Flows):**
+*   **Luồng Upload Ảnh (`POST /api/images`):**
+    1.  Nhận file từ Client qua `multipart/form-data`.
+    2.  **Lưu trữ tạm (In-memory):** Đọc dữ liệu binary (`byte[]`) và lưu vào `imageDataStore` (kiểu `Dictionary`) trong RAM.
+    3.  **Định danh:** Sử dụng `Guid.NewGuid()` để tạo ID duy nhất.
+    4.  **Giả lập AI Vision:** Sử dụng `Random` để chọn 3 nhãn ngẫu nhiên, sẵn sàng thay thế bằng `ImageAnalysisClient` của Azure.
+    5.  **Phản hồi:** Trả về metadata của ảnh cho Client.
+*   **Luồng Phục vụ Ảnh (`GET /api/images/{id}/content`):**
+    *   Sử dụng `Results.File()` để trả về nội dung ảnh từ RAM dựa trên ID, giúp FE hiển thị ảnh ổn định.
+*   **Luồng Lấy danh sách (`GET /api/images`):**
+    *   Truy xuất từ `imageMetadataList` và sắp xếp theo thời gian (`OrderByDescending`).
+
+### 2. Frontend (Angular 19+)
+Giao diện được module hóa thành các Component standalone tại thư mục `frontend/src/app/components`.
+
+**Kiến trúc và Luồng xử lý:**
+*   **Quản lý State và API (`frontend/src/app/services/image.ts`):**
+    *   `ImageService` đóng vai trò trung tâm điều phối dữ liệu.
+    *   Sử dụng **RxJS Subject** (`imageUploadedSubject`) để phát tín hiệu cập nhật toàn ứng dụng.
+*   **Luồng Đẩy ảnh (`frontend/src/app/components/upload/`):**
+    *   `upload.ts`: Xử lý logic chọn file, Drag & Drop (`onDrop`) và gọi service upload.
+    *   `upload.html`: Giao diện vùng drop-zone và danh sách file chờ.
+*   **Luồng Hiển thị và Preview (`frontend/src/app/components/gallery/`):**
+    *   `gallery.ts`: Đăng ký nhận dữ liệu từ `ImageService`. Khi có ảnh mới, nó được tự động thêm vào mảng `images` để hiển thị tức thì.
+    *   **Modal Preview:** Logic `openPreview` quản lý trạng thái hiển thị ảnh phóng to và khóa cuộn trang (`document.body.style.overflow`).
+    *   `gallery.html`: Sử dụng `*ngFor` để render danh sách ảnh và cấu trúc modal preview.
+
+**Thiết kế (UI/UX):**
+*   **Layout Tổng thể (`frontend/src/app/app.html`):** Sử dụng cấu trúc container chia hai cột (Upload & Gallery).
+*   **CSS/SCSS (`gallery.scss` & `upload.scss`):** Sử dụng Flexbox, Grid và các hiệu ứng Glassmorphism để tạo cảm giác cao cấp.
+
+---
+
 ## 🛠️ Cấu trúc dự án
 - `/frontend`: Angular 19+ (SCSS, Standalone).
 - `/backend`: .NET 10 Minimal API.
