@@ -1,0 +1,38 @@
+resource "azurerm_service_plan" "plan" {
+  name                = "plan-${var.project_name}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  os_type             = "Linux"
+  sku_name            = "F1"
+}
+
+resource "azurerm_linux_web_app" "backend" {
+  name                = "app-be-${var.project_name}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  service_plan_id     = azurerm_service_plan.plan.id
+
+  site_config {
+    application_stack {
+      dotnet_version = "9.0" # .NET 10 chưa có sẵn trên Azure App Service stack hiện tại, dùng 9.0 tạm thời
+    }
+    cors {
+      allowed_origins = ["*"]
+    }
+  }
+
+  app_settings = {
+    "Azure__BlobStorage__ConnectionString" = azurerm_storage_account.storage.primary_connection_string
+    "Azure__CosmosDb__Endpoint"           = azurerm_cosmosdb_account.cosmos.endpoint
+    "Azure__CosmosDb__Key"                = azurerm_cosmosdb_account.cosmos.primary_key
+    "APPINSIGHTS_INSTRUMENTATIONKEY"      = azurerm_application_insights.insights.instrumentation_key
+  }
+}
+
+resource "azurerm_static_web_app" "frontend" {
+  name                = "stapp-fe-${var.project_name}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = "East Asia" # Static Web Apps chỉ hỗ trợ một số vùng nhất định
+  sku_tier            = "Free"
+  sku_size            = "Free"
+}

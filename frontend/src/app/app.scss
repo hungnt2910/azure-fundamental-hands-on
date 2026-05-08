@@ -1,0 +1,48 @@
+.text-center { text-align: center; }
+.py-12 { padding-top: 3rem; padding-bottom: 3rem; }
+.py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+.mt-24 { margin-top: 6rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.text-5xl { font-size: 3.5rem; }
+.text-lg { font-size: 1.125rem; }
+.font-extrabold { font-weight: 800; }
+
+.main-layout {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  margin-top: 2rem;
+
+  @media (max-width: 1024px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.upload-sidebar {
+  flex: 0 0 400px;
+  position: sticky;
+  top: 2rem;
+
+  @media (max-width: 1024px) {
+    flex: none;
+    position: static;
+  }
+}
+
+.gallery-main {
+  flex: 1;
+  min-width: 0; // Để grid bên trong không bị vỡ
+}
+
+.divider-v {
+  width: 1px;
+  align-self: stretch;
+  background: var(--glass-border);
+  
+  @media (max-width: 1024px) {
+    display: none;
+  }
+}
+
+.border-t { border-top: 1px solid var(--glass-border); }

@@ -1,0 +1,55 @@
+<div class="gallery-container">
+  <div class="header mb-8">
+    <h2 class="title-gradient text-3xl">Bộ sưu tập ảnh Azure</h2>
+    <p class="text-secondary">Khám phá các bức ảnh mới nhất (Real-time).</p>
+  </div>
+
+  <div *ngIf="images.length === 0 && !isLoading" class="empty-state glass-card">
+    <p>Chưa có ảnh nào. Hãy bắt đầu bằng cách tải lên một tấm ảnh!</p>
+  </div>
+
+  <!-- Wrapper cho scroll dọc -->
+  <div class="image-grid-wrapper">
+    <div *ngIf="isLoading" class="image-grid">
+      <div *ngFor="let i of [1,2,3,4,5,6,7,8]" class="skeleton-card glass-card"></div>
+    </div>
+
+    <!-- Grid hiển thị ảnh (4 cột) -->
+    <div class="image-grid" *ngIf="!isLoading">
+      <div class="image-card glass-card" *ngFor="let img of images" (click)="openPreview(img)">
+        <div class="image-wrapper">
+          <img [src]="img.thumbnailUrl || img.url" [alt]="img.name" loading="lazy">
+          <div class="overlay">
+            <span class="view-icon">👁</span>
+          </div>
+        </div>
+        <div class="card-content">
+          <h3 class="img-name" [title]="img.name">{{ img.name }}</h3>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Preview chi tiết -->
+  <div class="preview-modal" *ngIf="selectedImage" (click)="closePreview()">
+    <div class="modal-content glass-card" (click)="$event.stopPropagation()">
+      <button class="close-btn" (click)="closePreview()">✕</button>
+      <div class="modal-body">
+        <div class="modal-image">
+          <img [src]="selectedImage.url" [alt]="selectedImage.name">
+        </div>
+        <div class="modal-info">
+          <h2 class="title-gradient">{{ selectedImage.name }}</h2>
+          <p class="text-secondary mb-4">Tải lên lúc: {{ selectedImage.uploadedAt | date:'medium' }}</p>
+          <div class="tags">
+            <span class="tag" *ngFor="let tag of selectedImage.tags">#{{ tag }}</span>
+          </div>
+          <div class="azure-info mt-auto p-5 glass-card">
+            <h4><span>✦</span> Cloud Intelligence</h4>
+            <p class="text-xs text-secondary">Phân tích chuyên sâu bởi Azure AI Vision Service</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

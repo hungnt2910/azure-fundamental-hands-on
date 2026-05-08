@@ -1,0 +1,33 @@
+# --- Root Gitignore ---
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# --- Frontend (Angular) ---
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/.vscode/
+
+# --- Backend (.NET) ---
+backend/bin/
+backend/obj/
+backend/.vs/
+backend/appsettings.Development.json
+
+# --- Terraform ---
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfvars
+terraform/.terraform.lock.hcl
+
+# --- Docker ---
+.docker/

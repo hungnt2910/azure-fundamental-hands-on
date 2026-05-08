@@ -1,0 +1,62 @@
+<div class="glass-card upload-container">
+  <h2 class="title-gradient mb-4">Tải ảnh lên Azure</h2>
+  <p class="text-secondary mb-6">Chọn một hoặc nhiều ảnh để khám phá sức mạnh của Azure AI Vision.</p>
+
+  <div 
+    class="drop-zone" 
+    (click)="fileInput.click()"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave($event)"
+    (drop)="onDrop($event)"
+    [class.dragging]="isDragging"
+  >
+    <div class="drop-zone-content">
+      <div *ngIf="selectedFiles.length === 0">
+        <i class="upload-icon">📁</i>
+        <p>Kéo thả ảnh vào đây hoặc click để chọn</p>
+      </div>
+      
+      <!-- Hiển thị danh sách file đã chọn -->
+      <div *ngIf="selectedFiles.length > 0" class="selected-files-list">
+        <div *ngFor="let file of selectedFiles" class="selected-file-item">
+          <span>{{ file.name }}</span>
+          <small>{{ (file.size / 1024).toFixed(1) }} KB</small>
+        </div>
+        <p class="selection-summary">Đã chọn {{ selectedFiles.length }} ảnh</p>
+      </div>
+    </div>
+    <input 
+      type="file" 
+      #fileInput 
+      (change)="onFileSelected($event)" 
+      accept="image/*" 
+      multiple 
+      style="display: none"
+    >
+  </div>
+
+  <div class="actions mt-6">
+    <div class="flex gap-2">
+      <button 
+        *ngIf="selectedFiles.length > 0"
+        class="btn-outline flex-1"
+        (click)="clearSelection()"
+        [disabled]="isUploading"
+      >
+        Hủy
+      </button>
+      <button 
+        class="btn-primary flex-2" 
+        [disabled]="selectedFiles.length === 0 || isUploading"
+        (click)="upload()"
+      >
+        <span *ngIf="!isUploading">Tải lên ngay ({{ selectedFiles.length }})</span>
+        <span *ngIf="isUploading" class="loader">Đang tải lên...</span>
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="uploadSuccess" class="success-message mt-4">
+    🎉 Thành công! {{ lastUploadedCount }} ảnh đã được Azure xử lý.
+  </div>
+</div>
