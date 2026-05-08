@@ -63,7 +63,7 @@ Team Cloud thực hiện theo các bước sau để chuyển đổi từ Demo s
 *   **Bước 2**: Vào **Secrets** -> Tạo các secret cho ConnectionString, Keys.
 *   **Bước 3**: Trong code Backend, sử dụng gói `Azure.Extensions.AspNetCore.Configuration.Secrets` để load cấu hình trực tiếp từ Vault.
 
-### 4. Azure Application Insights (Giám sát)
+### 6. Azure Application Insights (Giám sát)
 *   **Bước 1**: Tạo tài nguyên `Application Insights`.
 *   **Bước 2**: Lấy `ConnectionString` dán vào `appsettings.json`.
 *   **Bước 3**: Backend sẽ tự động đẩy log lên nhờ cấu hình `AddApplicationInsightsTelemetry()`.
