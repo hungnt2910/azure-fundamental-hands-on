@@ -16,14 +16,17 @@
         <p>Kéo thả ảnh vào đây hoặc click để chọn</p>
       </div>
       
-      <!-- Hiển thị danh sách file đã chọn -->
-      <div *ngIf="selectedFiles.length > 0" class="selected-files-list">
-        <div *ngFor="let file of selectedFiles" class="selected-file-item">
-          <span>{{ file.name }}</span>
-          <small>{{ (file.size / 1024).toFixed(1) }} KB</small>
+      <!-- Hiển thị danh sách ảnh preview theo hàng -->
+      <div *ngIf="selectedFiles.length > 0" class="preview-list">
+        <div *ngFor="let sf of selectedFiles; let i = index" class="preview-row glass-card">
+          <img [src]="sf.previewUrl" class="mini-thumb">
+          <span class="file-name">{{ sf.file.name }}</span>
+          <button class="remove-btn" (click)="removeFile(i); $event.stopPropagation()">✕</button>
         </div>
-        <p class="selection-summary">Đã chọn {{ selectedFiles.length }} ảnh</p>
       </div>
+      <p *ngIf="selectedFiles.length > 0" class="selection-summary mt-4">
+        Đã chọn {{ selectedFiles.length }} ảnh
+      </p>
     </div>
     <input 
       type="file" 

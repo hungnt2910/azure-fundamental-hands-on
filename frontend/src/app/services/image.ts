@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, Subject, tap } from 'rxjs';
+import * as signalR from '@microsoft/signalr';
 
 export interface ImageMetadata {
   id: string;
@@ -16,27 +17,46 @@ export interface ImageMetadata {
 })
 export class ImageService {
   private apiUrl = 'http://localhost:5000/api/images';
+  private hubUrl = 'http://localhost:5000/hubs/images';
   
+  private hubConnection: signalR.HubConnection;
   private imageUploadedSubject = new Subject<ImageMetadata[]>();
   imageUploaded$ = this.imageUploadedSubject.asObservable();
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient) { 
+    // Khởi tạo SignalR Connection
+    this.hubConnection = new signalR.HubConnectionBuilder()
+      .withUrl(this.hubUrl)
+      .withAutomaticReconnect()
+      .build();
+
+    this.startSignalRConnection();
+
+    // Lắng nghe sự kiện từ Server
+    this.hubConnection.on('ReceiveNewImages', (newImages: ImageMetadata[]) => {
+      console.log('SignalR: Nhận được ảnh mới!', newImages);
+      this.imageUploadedSubject.next(newImages);
+    });
+  }
+
+  private startSignalRConnection() {
+    this.hubConnection
+      .start()
+      .then(() => console.log('SignalR: Đã kết nối thành công!'))
+      .catch(err => console.error('SignalR: Lỗi kết nối: ', err));
+  }
 
   getImages(): Observable<ImageMetadata[]> {
     return this.http.get<ImageMetadata[]>(this.apiUrl);
   }
 
-  // Cập nhật để hỗ trợ gửi nhiều file trong 1 request
   uploadImages(files: File[]): Observable<ImageMetadata[]> {
     const formData = new FormData();
     files.forEach(file => {
       formData.append('images', file, file.name);
     });
 
-    return this.http.post<ImageMetadata[]>(this.apiUrl, formData).pipe(
-      tap(newImages => {
-        this.imageUploadedSubject.next(newImages);
-      })
-    );
+    // Không cần .pipe(tap(...)) nữa vì SignalR sẽ tự lo việc thông báo cho toàn bộ client (bao gồm cả chính mình)
+    return this.http.post<ImageMetadata[]>(this.apiUrl, formData);
   }
 }

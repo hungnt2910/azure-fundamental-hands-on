@@ -1,5 +1,6 @@
 services:
   backend:
+    container_name: azure-gallery-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -11,6 +12,7 @@ services:
       - azure-net
 
   frontend:
+    container_name: azure-gallery-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile

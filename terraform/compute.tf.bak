@@ -27,6 +27,8 @@ resource "azurerm_linux_web_app" "backend" {
     "Azure__CosmosDb__Key"                = azurerm_cosmosdb_account.cosmos.primary_key
     "APPINSIGHTS_INSTRUMENTATIONKEY"      = azurerm_application_insights.insights.instrumentation_key
   }
+
+  virtual_network_subnet_id = azurerm_subnet.backend_subnet.id
 }
 
 resource "azurerm_static_web_app" "frontend" {

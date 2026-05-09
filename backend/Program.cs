@@ -3,6 +3,7 @@ using Azure.Storage.Blobs;
 using Azure.AI.Vision.ImageAnalysis;
 using Azure;
 using Microsoft.Azure.Cosmos;
+using Microsoft.AspNetCore.SignalR;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,13 +27,17 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAngular",
         policy => policy.WithOrigins("http://localhost:4200", "http://localhost:8080")
                         .AllowAnyMethod()
-                        .AllowAnyHeader());
+                        .AllowAnyHeader()
+                        .AllowCredentials()); // Quan trọng cho SignalR
 });
+
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors("AllowAngular");
+
 
 // KHO LƯU TRỮ TRONG BỘ NHỚ (Dữ liệu sẽ mất khi restart server)
 var imageMetadataList = new List<dynamic>
@@ -44,13 +49,7 @@ var imageMetadataList = new List<dynamic>
 // Lưu trữ byte ảnh trong RAM để phục vụ demo
 var imageDataStore = new Dictionary<string, (byte[] Data, string ContentType)>();
 
-/* 
- * ☁️ GUIDE: PERSISTENCE STORAGE (COSMOS DB)
- * Nếu bạn muốn lưu metadata vĩnh viễn thay vì dùng List trong RAM:
- * 1. Khai báo CosmosClient và Container tại đây.
- * 2. Thay thế imageMetadataList bằng các lệnh gọi tới container.ReadItemsAsync...
- */
-
+app.MapHub<ImageHub>("/hubs/images");
 
 // API: Lấy danh sách ảnh
 app.MapGet("/api/images", () =>
@@ -69,7 +68,7 @@ app.MapGet("/api/images/{id}/content", (string id) =>
 });
 
 // API: Upload ảnh
-app.MapPost("/api/images", async (HttpRequest request, HttpContext context) =>
+app.MapPost("/api/images", async (HttpRequest request, HttpContext context, IHubContext<ImageHub> hubContext) =>
 {
     if (!request.HasFormContentType) return Results.BadRequest("Invalid form content.");
 
@@ -98,23 +97,6 @@ app.MapPost("/api/images", async (HttpRequest request, HttpContext context) =>
         var random = new Random();
         var tags = possibleTags.OrderBy(x => random.Next()).Take(3).ToList();
 
-        /* 
-         * ☁️ GUIDE: TRIỂN KHAI AZURE BLOB STORAGE & AI VISION
-         * Để thay thế demo in-memory bằng Azure thật:
-         * 
-         * 1. BLOB STORAGE:
-         *    var blobServiceClient = context.RequestServices.GetRequiredService<BlobServiceClient>();
-         *    var containerClient = blobServiceClient.GetBlobContainerClient("images");
-         *    var blobClient = containerClient.GetBlobClient(id + Path.GetExtension(file.FileName));
-         *    await blobClient.UploadAsync(file.OpenReadStream());
-         *    string imageUrl = blobClient.Uri.ToString();
-         * 
-         * 2. AI VISION:
-         *    var visionClient = context.RequestServices.GetRequiredService<ImageAnalysisClient>();
-         *    var analysisResult = await visionClient.AnalyzeAsync(blobClient.Uri, VisualFeatures.Tags);
-         *    var tags = analysisResult.Value.Tags.Values.Select(t => t.Name).ToList();
-         */
-
         var newImage = new 
         { 
             id = id, 
@@ -128,8 +110,14 @@ app.MapPost("/api/images", async (HttpRequest request, HttpContext context) =>
         uploadedResults.Add(newImage);
     }
 
+    // BROADCAST: Gửi thông báo tới TẤT CẢ các client đang kết nối
+    await hubContext.Clients.All.SendAsync("ReceiveNewImages", uploadedResults);
+
     return Results.Ok(uploadedResults);
 })
 .DisableAntiforgery();
 
 app.Run();
+
+// Định nghĩa Hub cho SignalR
+public class ImageHub : Microsoft.AspNetCore.SignalR.Hub { }

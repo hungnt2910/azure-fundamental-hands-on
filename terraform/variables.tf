@@ -7,7 +7,7 @@ variable "project_name" {
 variable "location" {
   description = "Vị trí địa lý của Azure resources"
   type        = string
-  default     = "East US"
+  default     = "Southeast Asia"
 }
 
 variable "resource_group_name" {

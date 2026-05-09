@@ -2,6 +2,11 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ImageService } from '../../services/image';
 
+export interface SelectedFile {
+  file: File;
+  previewUrl: string;
+}
+
 @Component({
   selector: 'app-upload',
   standalone: true,
@@ -10,7 +15,7 @@ import { ImageService } from '../../services/image';
   styleUrls: ['./upload.scss']
 })
 export class UploadComponent {
-  selectedFiles: File[] = [];
+  selectedFiles: SelectedFile[] = [];
   isDragging = false;
   isUploading = false;
   uploadSuccess = false;
@@ -45,12 +50,25 @@ export class UploadComponent {
   }
 
   private addFiles(fileList: FileList) {
-    const newFiles = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+    const newFiles = Array.from(fileList)
+      .filter(f => f.type.startsWith('image/'))
+      .map(file => ({
+        file: file,
+        previewUrl: URL.createObjectURL(file) // Tạo URL để hiển thị ảnh preview
+      }));
+    
     this.selectedFiles = [...this.selectedFiles, ...newFiles];
     this.uploadSuccess = false;
   }
 
+  removeFile(index: number) {
+    const file = this.selectedFiles[index];
+    URL.revokeObjectURL(file.previewUrl); // Giải phóng bộ nhớ
+    this.selectedFiles.splice(index, 1);
+  }
+
   clearSelection() {
+    this.selectedFiles.forEach(f => URL.revokeObjectURL(f.previewUrl));
     this.selectedFiles = [];
     this.uploadSuccess = false;
   }
@@ -61,11 +79,13 @@ export class UploadComponent {
     this.isUploading = true;
     this.lastUploadedCount = this.selectedFiles.length;
     
-    this.imageService.uploadImages(this.selectedFiles).subscribe({
+    const filesToUpload = this.selectedFiles.map(sf => sf.file);
+
+    this.imageService.uploadImages(filesToUpload).subscribe({
       next: (res) => {
         this.isUploading = false;
         this.uploadSuccess = true;
-        this.selectedFiles = []; // Xóa danh sách sau khi upload thành công
+        this.clearSelection(); // Xóa và giải phóng bộ nhớ
       },
       error: (err) => {
         this.isUploading = false;
