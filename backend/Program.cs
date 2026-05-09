@@ -4,7 +4,6 @@ using Azure.AI.Vision.ImageAnalysis;
 using Azure;
 using Microsoft.Azure.Cosmos;
 using Microsoft.AspNetCore.SignalR;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -20,7 +19,9 @@ builder.Services.AddApplicationInsightsTelemetry();
 // builder.Services.AddSingleton(x => new BlobServiceClient(builder.Configuration.GetConnectionString("AzureBlobStorage")));
 // builder.Services.AddSingleton(x => new ImageAnalysisClient(new Uri(builder.Configuration["AzureAI:Endpoint"]), new AzureKeyCredential(builder.Configuration["AzureAI:Key"])));
 
-
+builder.Services.AddSingleton(x =>
+    new BlobServiceClient(
+        builder.Configuration["Azure:BlobStorage:ConnectionString"]));
 // CORS
 builder.Services.AddCors(options =>
 {
@@ -46,8 +47,6 @@ var imageMetadataList = new List<dynamic>
     new { id = "2", name = "Tech Cloud", url = "https://images.unsplash.com/photo-1451187580459-43490279c0fa", tags = new[] { "cloud", "tech" }, uploadedAt = DateTime.UtcNow }
 };
 
-// Lưu trữ byte ảnh trong RAM để phục vụ demo
-var imageDataStore = new Dictionary<string, (byte[] Data, string ContentType)>();
 
 app.MapHub<ImageHub>("/hubs/images");
 
@@ -58,65 +57,93 @@ app.MapGet("/api/images", () =>
 });
 
 // API: Phục vụ nội dung ảnh từ RAM
-app.MapGet("/api/images/{id}/content", (string id) =>
-{
-    if (imageDataStore.TryGetValue(id, out var image))
-    {
-        return Results.File(image.Data, image.ContentType);
-    }
-    return Results.NotFound();
-});
+//app.MapGet("/api/images/{id}/content", (string id) =>
+//{
+//    if (imageDataStore.TryGetValue(id, out var image))
+//    {
+//        return Results.File(image.Data, image.ContentType);
+//    }
+//    return Results.NotFound();
+//});
 
 // API: Upload ảnh
-app.MapPost("/api/images", async (HttpRequest request, HttpContext context, IHubContext<ImageHub> hubContext) =>
+app.MapPost("/api/images",
+async (
+    HttpRequest request,
+    BlobServiceClient blobServiceClient,
+    IConfiguration configuration,
+    IHubContext<ImageHub> hubContext) =>
 {
-    if (!request.HasFormContentType) return Results.BadRequest("Invalid form content.");
+    if (!request.HasFormContentType)
+        return Results.BadRequest("Invalid form content.");
 
     var form = await request.ReadFormAsync();
     var files = form.Files;
-    if (files.Count == 0) return Results.BadRequest("No images uploaded.");
+
+    if (files.Count == 0)
+        return Results.BadRequest("No images uploaded.");
 
     var uploadedResults = new List<object>();
-    var baseUrl = "http://localhost:5000"; 
+
+    string containerName =
+        configuration["Azure:AzureBlob:ContainerName"]!;
+
+    var containerClient =
+        blobServiceClient.GetBlobContainerClient(containerName);
+
+    await containerClient.CreateIfNotExistsAsync();
 
     foreach (var file in files)
     {
-        var id = Guid.NewGuid().ToString();
-        
-        // Đọc và lưu byte vào RAM
-        using var ms = new MemoryStream();
-        await file.CopyToAsync(ms);
-        var fileData = ms.ToArray();
-        imageDataStore[id] = (fileData, file.ContentType);
+        var fileName =
+            $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
 
-        // Tạo URL trỏ về endpoint nội bộ
-        string imageUrl = $"{baseUrl}/api/images/{id}/content";
+        var blobClient =
+            containerClient.GetBlobClient(fileName);
 
-        // Giả lập AI Vision phân tích tags
-        var possibleTags = new[] { "azure", "cloud", "ai-vision", "demo", "landscape", "technology", "nature" };
-        var random = new Random();
-        var tags = possibleTags.OrderBy(x => random.Next()).Take(3).ToList();
+        using var stream = file.OpenReadStream();
 
-        var newImage = new 
-        { 
-            id = id, 
-            name = file.FileName, 
-            url = imageUrl, 
-            tags = tags,
-            uploadedAt = DateTime.UtcNow 
+        await blobClient.UploadAsync(
+            stream,
+            overwrite: true);
+
+        string imageUrl = blobClient.Uri.ToString();
+
+        var possibleTags = new[]
+        {
+            "azure",
+            "cloud",
+            "blob-storage",
+            "technology",
+            "demo"
         };
-        
+
+        var random = new Random();
+
+        var tags = possibleTags
+            .OrderBy(x => random.Next())
+            .Take(3)
+            .ToList();
+
+        var newImage = new
+        {
+            id = Guid.NewGuid().ToString(),
+            name = file.FileName,
+            url = imageUrl,
+            tags = tags,
+            uploadedAt = DateTime.UtcNow
+        };
+
         imageMetadataList.Add(newImage);
         uploadedResults.Add(newImage);
     }
 
-    // BROADCAST: Gửi thông báo tới TẤT CẢ các client đang kết nối
-    await hubContext.Clients.All.SendAsync("ReceiveNewImages", uploadedResults);
+    await hubContext.Clients.All
+        .SendAsync("ReceiveNewImages", uploadedResults);
 
     return Results.Ok(uploadedResults);
 })
 .DisableAntiforgery();
-
 app.Run();
 
 // Định nghĩa Hub cho SignalR

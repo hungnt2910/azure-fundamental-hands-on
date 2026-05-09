@@ -16,8 +16,8 @@ export interface ImageMetadata {
   providedIn: 'root'
 })
 export class ImageService {
-  private apiUrl = 'http://localhost:5000/api/images';
-  private hubUrl = 'http://localhost:5000/hubs/images';
+  private apiUrl = 'https://image-gallery-api-demo-ehdff4d6gwhqgfgk.southeastasia-01.azurewebsites.net/api/images';
+  private hubUrl = 'https://image-gallery-api-demo-ehdff4d6gwhqgfgk.southeastasia-01.azurewebsites.net/hubs/images';
   
   private hubConnection: signalR.HubConnection;
   private imageUploadedSubject = new Subject<ImageMetadata[]>();
