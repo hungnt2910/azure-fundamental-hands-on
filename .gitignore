@@ -5,6 +5,7 @@
 .idea/
 *.swp
 *.swo
+.vs/
 
 # OS files
 .DS_Store
