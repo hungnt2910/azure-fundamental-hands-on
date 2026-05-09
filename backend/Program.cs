@@ -119,7 +119,7 @@ async (
         };
 
         var random = new Random();
-
+        // todo: Azure AI Vision Integration để tự động gắn thẻ ảnh dựa trên nội dung, hiện tại đang giả lập bằng cách random tag
         var tags = possibleTags
             .OrderBy(x => random.Next())
             .Take(3)
@@ -133,11 +133,11 @@ async (
             tags = tags,
             uploadedAt = DateTime.UtcNow
         };
-
+        // Todo: integrate cosmos for storing metadata, currently using in-memory list
         imageMetadataList.Add(newImage);
         uploadedResults.Add(newImage);
     }
-
+// Todo: implemnt Azure SignalR Service để gửi thông báo real-time về client khi có ảnh mới được upload
     await hubContext.Clients.All
         .SendAsync("ReceiveNewImages", uploadedResults);
 
