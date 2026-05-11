@@ -26,6 +26,9 @@ builder.Services.AddApplicationInsightsTelemetry();
 // builder.Services.AddSingleton(x => new BlobServiceClient(builder.Configuration.GetConnectionString("AzureBlobStorage")));
 // builder.Services.AddSingleton(x => new ImageAnalysisClient(new Uri(builder.Configuration["AzureAI:Endpoint"]), new AzureKeyCredential(builder.Configuration["AzureAI:Key"])));
 
+
+
+
 builder.Services.AddSingleton(x =>
     new BlobServiceClient(
         builder.Configuration["Azure:BlobStorage:ConnectionString"]));
@@ -43,9 +46,21 @@ builder.Services.AddSignalR();
 
 // Cosmos DB Configuration
 var cosmosConnString = builder.Configuration["Azure:CosmosDb:ConnectionString"];
+if (string.IsNullOrWhiteSpace(cosmosConnString))
+{
+    throw new Exception(
+        "Cosmos DB connection string missing");
+}
 var cosmosDbName = builder.Configuration["Azure:CosmosDb:DatabaseName"];
 var cosmosClient = new CosmosClient(cosmosConnString);
 builder.Services.AddSingleton(cosmosClient);
+
+builder.Services.AddSingleton(x =>
+    new ImageAnalysisClient(
+        new Uri(builder.Configuration["Azure:AIVision:Endpoint"]!),
+        new AzureKeyCredential(
+            builder.Configuration["Azure:AIVision:Key"]!)));
+
 
 // JWT Configuration
 var jwtKey = builder.Configuration["Jwt:Key"];
@@ -167,96 +182,111 @@ async (
     BlobServiceClient blobServiceClient,
     CosmosClient cosmosClient,
     IConfiguration configuration,
-    IHubContext<ImageHub> hubContext) =>
+    IHubContext<ImageHub> hubContext,
+    ImageAnalysisClient visionClient,
+    ILogger<Program> logger) =>
 {
-    // Xác thực và lấy userId từ token JWT
-    var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    if (string.IsNullOrEmpty(userId))
+    try
     {
-        return Results.Unauthorized();
+        // Xác thực và lấy userId từ token JWT
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            logger.LogWarning("Unauthorized upload attempt.");
+            return Results.Unauthorized();
+        }
+
+        if (!request.HasFormContentType)
+        {
+            logger.LogWarning("Upload failed: Invalid form content for user {UserId}", userId);
+            return Results.BadRequest("Invalid form content.");
+        }
+
+        // Lấy file upload
+        var form = await request.ReadFormAsync();
+        var files = form.Files;
+
+        if (files.Count == 0)
+        {
+            logger.LogWarning("Upload failed: No images uploaded for user {UserId}", userId);
+            return Results.BadRequest("No images uploaded.");
+        }
+
+        logger.LogInformation("Starting upload process for {Count} images by user {UserId}", files.Count, userId);
+
+        var uploadedResults = new List<ImageMetadata>();
+
+        // Cấu hình Blob Storage
+        string containerName = configuration["Azure:AzureBlob:ContainerName"]!;
+        var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+        await containerClient.CreateIfNotExistsAsync();
+
+        // Cấu hình Cosmos DB
+        string cosmosDbName = configuration["Azure:CosmosDb:DatabaseName"]!;
+        var cosmosContainer = cosmosClient.GetContainer(cosmosDbName, "Images");
+
+        foreach (var file in files)
+        {
+            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+            logger.LogInformation("Processing file: {OriginalName} as {StoredName}", file.FileName, fileName);
+
+            var blobClient = containerClient.GetBlobClient(fileName);
+            using var stream = file.OpenReadStream();
+
+            // 1. Upload to Blob Storage
+            await blobClient.UploadAsync(stream, overwrite: true);
+            string imageUrl = blobClient.Uri.ToString();
+            logger.LogInformation("Uploaded to Blob Storage: {Url}", imageUrl);
+
+            stream.Position = 0;
+
+            // 2. AI Vision Analysis
+            logger.LogInformation("Starting AI Vision analysis for {FileName}", fileName);
+            var analysis = await visionClient.AnalyzeAsync(
+                BinaryData.FromStream(stream),
+                VisualFeatures.Tags | VisualFeatures.Caption);
+
+            var tags = analysis.Value.Tags.Values
+                .Select(t => t.Name)
+                .Take(5)
+                .ToList();
+
+            var caption = analysis.Value.Caption?.Text;
+            logger.LogInformation("AI Analysis complete. Caption: {Caption}", caption);
+
+            var newImage = new ImageMetadata
+            {
+                Id = Guid.NewGuid().ToString(),
+                UserId = userId,
+                Name = file.FileName,
+                Url = imageUrl,
+                Tags = tags.ToArray(),
+                Caption = caption,
+                UploadedAt = DateTime.UtcNow
+            };
+
+            // 3. Save to Cosmos DB
+            await cosmosContainer.CreateItemAsync(newImage, new PartitionKey(userId));
+            logger.LogInformation("Metadata saved to Cosmos DB for {FileName}", fileName);
+
+            uploadedResults.Add(newImage);
+        }
+
+        // 4. Notify via SignalR
+        await hubContext.Clients.All.SendAsync("ReceiveNewImages", uploadedResults);
+        logger.LogInformation("Successfully processed {Count} images for user {UserId}", files.Count, userId);
+
+        return Results.Ok(uploadedResults);
     }
-
-    if (!request.HasFormContentType)
-        return Results.BadRequest("Invalid form content.");
-
-    // Lấy file upload
-    var form = await request.ReadFormAsync();
-    var files = form.Files;
-
-    if (files.Count == 0)
-        return Results.BadRequest("No images uploaded.");
-
-    var uploadedResults = new List<ImageMetadata>();
-
-    // Cấu hình Blob Storage
-    string containerName =
-        configuration["Azure:AzureBlob:ContainerName"]!;
-
-    var containerClient =
-        blobServiceClient.GetBlobContainerClient(containerName);
-
-    await containerClient.CreateIfNotExistsAsync();
-
-    // Cấu hình Cosmos DB
-    string cosmosDbName = configuration["CosmosDb:DatabaseName"]!;
-    var cosmosContainer = cosmosClient.GetContainer(cosmosDbName, "Images");
-
-    foreach (var file in files)
+    catch (Exception ex)
     {
-        var fileName =
-            $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-
-        var blobClient =
-            containerClient.GetBlobClient(fileName);
-
-        using var stream = file.OpenReadStream();
-
-        await blobClient.UploadAsync(
-            stream,
-            overwrite: true);
-
-        string imageUrl = blobClient.Uri.ToString();
-
-        var possibleTags = new[]
-        {
-            "azure",
-            "cloud",
-            "blob-storage",
-            "technology",
-            "demo"
-        };
-
-        var random = new Random();
-        // todo: Azure AI Vision Integration để tự động gắn thẻ ảnh dựa trên nội dung, hiện tại đang giả lập bằng cách random tag
-        var tags = possibleTags
-            .OrderBy(x => random.Next())
-            .Take(3)
-            .ToList();
-
-        var newImage = new ImageMetadata
-        {
-            Id = Guid.NewGuid().ToString(),
-            UserId = userId,
-            Name = file.FileName,
-            Url = imageUrl,
-            Tags = tags.ToArray(),
-            UploadedAt = DateTime.UtcNow
-        };
-
-        // Lưu metadata image vào Cosmos DB
-        //imageMetadataList.Add(newImage);
-        await cosmosContainer.CreateItemAsync(newImage, new PartitionKey(userId));
-
-        uploadedResults.Add(newImage);
+        logger.LogError(ex, "Unhandled error occurred during image upload process.");
+        return Results.Problem("An internal error occurred while processing the upload.");
     }
-// Todo: implemnt Azure SignalR Service để gửi thông báo real-time về client khi có ảnh mới được upload
-    await hubContext.Clients.All
-        .SendAsync("ReceiveNewImages", uploadedResults);
-
-    return Results.Ok(uploadedResults);
 })
 .DisableAntiforgery()
-.RequireAuthorization();
+ .RequireAuthorization();
+//.AllowAnonymous();
 
 app.Run();
 
