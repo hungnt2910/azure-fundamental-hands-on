@@ -90,6 +90,7 @@ export class UploadComponent {
       error: (err) => {
         this.isUploading = false;
         console.error('Upload failed', err);
+      
         alert('Có lỗi xảy ra khi tải ảnh lên.');
       }
     });

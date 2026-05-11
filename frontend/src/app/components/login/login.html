@@ -1,0 +1,59 @@
+<div class="login-container">
+  <div class="login-box">
+    <div class="login-header text-center mb-8">
+      <h1 class="text-4xl font-extrabold mb-2">
+        <span class="title-gradient">Azure</span> Cloud Gallery
+      </h1>
+      <p class="text-secondary">Đăng nhập để tiếp tục</p>
+    </div>
+
+    <form (ngSubmit)="login()" class="space-y-6">
+      <div class="form-group">
+        <label for="username" class="block text-sm font-medium mb-2">Tên đăng nhập</label>
+        <input
+          type="text"
+          id="username"
+          [(ngModel)]="username"
+          name="username"
+          class="w-full px-4 py-3 bg-glass border border-glass rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-secondary"
+          placeholder="Nhập tên đăng nhập"
+          [disabled]="loading"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="password" class="block text-sm font-medium mb-2">Mật khẩu</label>
+        <input
+          type="password"
+          id="password"
+          [(ngModel)]="password"
+          name="password"
+          class="w-full px-4 py-3 bg-glass border border-glass rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-secondary"
+          placeholder="Nhập mật khẩu"
+          [disabled]="loading"
+        />
+      </div>
+
+      <div *ngIf="error" class="error-message text-red-500 text-sm p-3 bg-red-500 bg-opacity-20 rounded-lg">
+        {{ error }}
+      </div>
+
+      <button
+        type="submit"
+        [disabled]="loading"
+        class="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {{ loading ? 'Đang đăng nhập...' : 'Đăng nhập' }}
+      </button>
+    </form>
+
+    <div class="text-center mt-6 text-sm text-secondary">
+      <p>
+        Chưa có tài khoản?
+        <a routerLink="/register" class="text-blue-400 hover:text-blue-300 font-semibold transition-colors">
+          Đăng ký ngay
+        </a>
+      </p>
+    </div>
+  </div>
+</div>
