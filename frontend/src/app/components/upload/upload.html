@@ -8,25 +8,31 @@
     (dragover)="onDragOver($event)"
     (dragleave)="onDragLeave($event)"
     (drop)="onDrop($event)"
-    [class.dragging]="isDragging"
+    [class.dragging]="isDragging()"
   >
     <div class="drop-zone-content">
-      <div *ngIf="selectedFiles.length === 0">
-        <i class="upload-icon">📁</i>
-        <p>Kéo thả ảnh vào đây hoặc click để chọn</p>
-      </div>
+      @if (selectedFiles().length === 0) {
+        <div>
+          <i class="upload-icon">📁</i>
+          <p>Kéo thả ảnh vào đây hoặc click để chọn</p>
+        </div>
+      }
       
       <!-- Hiển thị danh sách ảnh preview theo hàng -->
-      <div *ngIf="selectedFiles.length > 0" class="preview-list">
-        <div *ngFor="let sf of selectedFiles; let i = index" class="preview-row glass-card">
-          <img [src]="sf.previewUrl" class="mini-thumb">
-          <span class="file-name">{{ sf.file.name }}</span>
-          <button class="remove-btn" (click)="removeFile(i); $event.stopPropagation()">✕</button>
+      @if (selectedFiles().length > 0) {
+        <div class="preview-list">
+          @for (sf of selectedFiles(); track $index) {
+            <div class="preview-row glass-card">
+              <img [src]="sf.previewUrl" class="mini-thumb">
+              <span class="file-name">{{ sf.file.name }}</span>
+              <button class="remove-btn" (click)="removeFile($index); $event.stopPropagation()">✕</button>
+            </div>
+          }
         </div>
-      </div>
-      <p *ngIf="selectedFiles.length > 0" class="selection-summary mt-4">
-        Đã chọn {{ selectedFiles.length }} ảnh
-      </p>
+        <p class="selection-summary mt-4">
+          Đã chọn {{ selectedFiles().length }} ảnh
+        </p>
+      }
     </div>
     <input 
       type="file" 
@@ -40,26 +46,32 @@
 
   <div class="actions mt-6">
     <div class="flex gap-2">
-      <button 
-        *ngIf="selectedFiles.length > 0"
-        class="btn-outline flex-1"
-        (click)="clearSelection()"
-        [disabled]="isUploading"
-      >
-        Hủy
-      </button>
+      @if (selectedFiles().length > 0) {
+        <button 
+          class="btn-outline flex-1"
+          (click)="clearSelection()"
+          [disabled]="isUploading()"
+        >
+          Hủy
+        </button>
+      }
       <button 
         class="btn-primary flex-2" 
-        [disabled]="selectedFiles.length === 0 || isUploading"
+        [disabled]="selectedFiles().length === 0 || isUploading()"
         (click)="upload()"
       >
-        <span *ngIf="!isUploading">Tải lên ngay ({{ selectedFiles.length }})</span>
-        <span *ngIf="isUploading" class="loader">Đang tải lên...</span>
+        @if (!isUploading()) {
+          <span>Tải lên ngay ({{ selectedFiles().length }})</span>
+        } @else {
+          <span class="loader">Đang tải lên...</span>
+        }
       </button>
     </div>
   </div>
 
-  <div *ngIf="uploadSuccess" class="success-message mt-4">
-    🎉 Thành công! {{ lastUploadedCount }} ảnh đã được Azure xử lý.
-  </div>
+  @if (uploadSuccess()) {
+    <div class="success-message mt-4">
+      🎉 Thành công! {{ lastUploadedCount() }} ảnh đã được Azure xử lý.
+    </div>
+  }
 </div>

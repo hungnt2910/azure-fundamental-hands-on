@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { UploadComponent } from './components/upload/upload';
 import { GalleryComponent } from './components/gallery/gallery';
 
@@ -7,7 +7,8 @@ import { GalleryComponent } from './components/gallery/gallery';
   standalone: true,
   imports: [UploadComponent, GalleryComponent],
   templateUrl: './app.html',
-  styleUrls: ['./app.scss']
+  styleUrls: ['./app.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AppComponent {
   title = 'frontend';

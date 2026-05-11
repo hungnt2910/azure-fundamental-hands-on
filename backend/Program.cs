@@ -36,13 +36,16 @@ builder.Services.AddSingleton(x =>
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngular",
-        policy => policy.WithOrigins("http://localhost:4200", "http://localhost:8080")
+        policy => policy.SetIsOriginAllowed(origin => true) // Cho phép tất cả origin để test, hoặc thay bằng domain cụ thể
                         .AllowAnyMethod()
                         .AllowAnyHeader()
-                        .AllowCredentials()); // Quan trọng cho SignalR
+                        .AllowCredentials());
 });
 
-builder.Services.AddSignalR();
+
+builder.Services.AddSignalR()
+                .AddAzureSignalR(builder.Configuration["Azure:SignalR:ConnectionString"]);
+
 
 // Cosmos DB Configuration
 var cosmosConnString = builder.Configuration["Azure:CosmosDb:ConnectionString"];

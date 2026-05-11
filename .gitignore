@@ -21,7 +21,9 @@ frontend/.vscode/
 backend/bin/
 backend/obj/
 backend/.vs/
-backend/appsettings.Development.json
+backend/appsettings.json
+backend/appsettings.*.json
+
 
 # --- Terraform ---
 terraform/.terraform/
