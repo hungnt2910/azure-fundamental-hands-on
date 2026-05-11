@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ImageService } from '../../services/image';
 
@@ -12,14 +12,15 @@ export interface SelectedFile {
   standalone: true,
   imports: [CommonModule],
   templateUrl: './upload.html',
-  styleUrls: ['./upload.scss']
+  styleUrls: ['./upload.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class UploadComponent {
-  selectedFiles: SelectedFile[] = [];
-  isDragging = false;
-  isUploading = false;
-  uploadSuccess = false;
-  lastUploadedCount = 0;
+  selectedFiles = signal<SelectedFile[]>([]);
+  isDragging = signal<boolean>(false);
+  isUploading = signal<boolean>(false);
+  uploadSuccess = signal<boolean>(false);
+  lastUploadedCount = signal<number>(0);
 
   constructor(private imageService: ImageService) {}
 
@@ -32,17 +33,17 @@ export class UploadComponent {
 
   onDragOver(event: DragEvent) {
     event.preventDefault();
-    this.isDragging = true;
+    this.isDragging.set(true);
   }
 
   onDragLeave(event: DragEvent) {
     event.preventDefault();
-    this.isDragging = false;
+    this.isDragging.set(false);
   }
 
   onDrop(event: DragEvent) {
     event.preventDefault();
-    this.isDragging = false;
+    this.isDragging.set(false);
     const files = event.dataTransfer?.files;
     if (files && files.length > 0) {
       this.addFiles(files);
@@ -57,38 +58,42 @@ export class UploadComponent {
         previewUrl: URL.createObjectURL(file) // Tạo URL để hiển thị ảnh preview
       }));
     
-    this.selectedFiles = [...this.selectedFiles, ...newFiles];
-    this.uploadSuccess = false;
+    this.selectedFiles.update(current => [...current, ...newFiles]);
+    this.uploadSuccess.set(false);
   }
 
   removeFile(index: number) {
-    const file = this.selectedFiles[index];
+    const file = this.selectedFiles()[index];
     URL.revokeObjectURL(file.previewUrl); // Giải phóng bộ nhớ
-    this.selectedFiles.splice(index, 1);
+    this.selectedFiles.update(current => {
+      const updated = [...current];
+      updated.splice(index, 1);
+      return updated;
+    });
   }
 
   clearSelection() {
-    this.selectedFiles.forEach(f => URL.revokeObjectURL(f.previewUrl));
-    this.selectedFiles = [];
-    this.uploadSuccess = false;
+    this.selectedFiles().forEach(f => URL.revokeObjectURL(f.previewUrl));
+    this.selectedFiles.set([]);
+    this.uploadSuccess.set(false);
   }
 
   upload() {
-    if (this.selectedFiles.length === 0) return;
+    if (this.selectedFiles().length === 0) return;
 
-    this.isUploading = true;
-    this.lastUploadedCount = this.selectedFiles.length;
+    this.isUploading.set(true);
+    this.lastUploadedCount.set(this.selectedFiles().length);
     
-    const filesToUpload = this.selectedFiles.map(sf => sf.file);
+    const filesToUpload = this.selectedFiles().map(sf => sf.file);
 
     this.imageService.uploadImages(filesToUpload).subscribe({
       next: (res) => {
-        this.isUploading = false;
-        this.uploadSuccess = true;
+        this.isUploading.set(false);
+        this.uploadSuccess.set(true);
         this.clearSelection(); // Xóa và giải phóng bộ nhớ
       },
       error: (err) => {
-        this.isUploading = false;
+        this.isUploading.set(false);
         console.error('Upload failed', err);
       
         alert('Có lỗi xảy ra khi tải ảnh lên.');
