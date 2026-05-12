@@ -28,13 +28,12 @@ jobs:
           npm install
           npm run build --if-present
           npm run test --if-present
-        working-directory: ./frontend
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: ./frontend
+          path: .
 
   deploy:
     runs-on: ubuntu-latest
@@ -53,4 +52,4 @@ jobs:
           app-name: 'images-gallery'
           slot-name: 'Production'
           package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_37E1C64A5CD54FC5ACE8E31BBA6D6C28 }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_8881E19A2C4F4172881D718C52E113C8 }}
